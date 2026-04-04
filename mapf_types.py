@@ -25,3 +25,4 @@ class Conflict(NamedTuple):
     """Avoiding being at given coord at a given time"""
     time: int
     coord: Coord
+

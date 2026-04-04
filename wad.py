@@ -121,10 +121,113 @@ and avoid the next position of the DRIVING agent).
 """
 
 from typing import Optional
-
+import itertools
+from dist_table import compute_dist_table
+from wad_model import *
 from utils import *
 from mapf_types import Agent, Grid, Plan
 from wad_road import create_road_system, print_road_system
+
+
+def get_cell_for_coord(road_system: RoadSystem, coord: Coord) -> Cell:
+    r, c = coord
+    r_idx = r // CELL_SIZE
+    c_idx = c // CELL_SIZE
+    for cell in road_system.cells:
+        if cell.r_idx == r_idx and cell.c_idx == c_idx:
+            return cell
+    raise LookupError(f'no cell found for coord {coord}')
+
+
+def create_agent_priorities(agents: list[Agent]):
+    sorted_agents = sorted(
+        agents,
+        key=lambda agent: manhattan_distance(agent.start, agent.target),
+        reverse=True,
+    )
+    for i, agent in enumerate(sorted_agents):
+        agent.data[PRIORITY] = i
+
+
+def initialize_agents_data(
+    grid: Grid,
+    agents: list[Agent],
+    road_system: RoadSystem,
+    cropped_grids: dict[Cell, Grid],
+):
+    create_agent_priorities(agents)
+
+    for agent in agents:
+        agent.data[DIST_TABLE_TO_ROAD_ON] = {}
+        start_cell = get_cell_for_coord(road_system, agent.start)
+        goal_cell = get_cell_for_coord(road_system, agent.target)
+
+        if start_cell == goal_cell:
+            agent.data[AGENT_STAGE] = AgentStage.DROPPING_OFF
+            agent.data[ROAD] = None
+            agent.data[GETTING_ON_POINT] = None
+            agent.data[DROPPING_OFF_POINT] = None
+
+            # Dist table for start/goal cell
+            local_goal = (agent.target[0] - start_cell.pos[0], agent.target[1] - start_cell.pos[1])
+            dist_table = compute_dist_table(cropped_grids[start_cell], local_goal)
+            agent.data[DIST_TABLE_TO_ROAD_ON][start_cell] = dist_table
+        else:
+            road = road_system.find_road(start_cell, goal_cell)
+            if not road:
+                raise Exception(f"No road found for agent {agent.id}")
+
+            agent.data[ROAD] = road
+            agent.data[AGENT_STAGE] = AgentStage.GETTING_ON
+
+            all_road_coords = list(
+                itertools.chain.from_iterable(s.coords for s in road.segments)
+            )
+
+            # Calculate getting_on_point
+            local_agent_start = (agent.start[0] - start_cell.pos[0], agent.start[1] - start_cell.pos[1])
+            start_dist_table = compute_dist_table(cropped_grids[start_cell], local_agent_start)
+            
+            road_coords_in_start_cell = [c for c in all_road_coords if get_cell_for_coord(road_system, c) == start_cell]
+
+            getting_on_point = min(
+                road_coords_in_start_cell,
+                key=lambda c: start_dist_table.get((c[0] - start_cell.pos[0], c[1] - start_cell.pos[1]), float('inf')),
+                default=None
+            )
+            
+            if getting_on_point is None:
+                raise Exception(f"Could not find getting_on_point for agent {agent.id}")
+
+            # Calculate dropping_off_point
+            local_agent_target = (agent.target[0] - goal_cell.pos[0], agent.target[1] - goal_cell.pos[1])
+            goal_dist_table = compute_dist_table(cropped_grids[goal_cell], local_agent_target)
+
+            road_coords_in_goal_cell = [c for c in all_road_coords if get_cell_for_coord(road_system, c) == goal_cell]
+            
+            dropping_off_point = min(
+                road_coords_in_goal_cell,
+                key=lambda c: goal_dist_table.get((c[0] - goal_cell.pos[0], c[1] - goal_cell.pos[1]), float('inf')),
+                default=None
+            )
+
+            if dropping_off_point is None:
+                raise Exception(f"Could not find dropping_off_point for agent {agent.id}")
+
+            agent.data[GETTING_ON_POINT] = getting_on_point
+            agent.data[DROPPING_OFF_POINT] = dropping_off_point
+
+            # Getting on dist table
+            gop_cell = get_cell_for_coord(road_system, getting_on_point)
+            local_goal = (getting_on_point[0] - gop_cell.pos[0], getting_on_point[1] - gop_cell.pos[1])
+            dist_table = compute_dist_table(cropped_grids[gop_cell], local_goal)
+            agent.data[DIST_TABLE_TO_ROAD_ON] = dist_table
+
+            # Dropping off dist table
+            dop_cell = get_cell_for_coord(road_system, dropping_off_point)
+            local_goal = (dropping_off_point[0] - dop_cell.pos[0], dropping_off_point[1] - dop_cell.pos[1])
+            dist_table = compute_dist_table(cropped_grids[dop_cell], local_goal)
+            agent.data[DIST_TABLE_TO_ROAD_OFF] = dist_table
 
 
 def d_get(dist_tables: list[dict[Coord, int]], agent_idx: int, v: Coord) -> int:
@@ -135,20 +238,33 @@ def solve(grid: Grid, agents: list[Agent]) -> Optional[Plan]:
     print("Creating road system...")
     road_system = create_road_system(grid)
     print("Road system created.")
-    print_road_system(grid, road_system)
+    # print_road_system(grid, road_system)
+
+    cropped_grids = {
+        cell: grid[
+            cell.pos[0] : cell.pos[0] + cell.height,
+            cell.pos[1] : cell.pos[1] + cell.width,
+        ]
+        for cell in road_system.cells
+    }
+
+    print("Initializing agents data...")
+    initialize_agents_data(grid, agents, road_system, cropped_grids)
+    print("Agents data initialized.")
+
     return None
 
 
 if __name__ == "__main__":
-    grid: Grid = get_grid('./assets/random-32-32-20.map')
-    scene = get_scenario('./assets/random-32-32-20.scen', 20)
+    grid: Grid = get_grid("./assets/random-32-32-20.map")
+    scene = get_scenario("./assets/random-32-32-20.scen", 20)
     agents = to_agents(scene)
 
     result = solve(grid, agents)
     if not result:
-        print('no solution')
+        print("no solution")
         exit(1)
     else:
         plan: Plan = result
-        print('saved plan')
-        save_configs_for_visualizer(to_configs(grid, plan), './output/out.txt')
+        print("saved plan")
+        save_configs_for_visualizer(to_configs(grid, plan), "./output/out.txt")

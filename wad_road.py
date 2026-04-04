@@ -18,19 +18,29 @@ def get_cells(grid: Grid) -> list[Cell]:
     cells = []
     for r in range(0, rows, CELL_SIZE):
         for c in range(0, cols, CELL_SIZE):
-            cells.append(Cell(r_idx=r // CELL_SIZE, c_idx=c // CELL_SIZE))
+            height = min(CELL_SIZE, rows - r)
+            width = min(CELL_SIZE, cols - c)
+            cells.append(
+                Cell(
+                    r_idx=r // CELL_SIZE,
+                    c_idx=c // CELL_SIZE,
+                    width=width,
+                    height=height,
+                    pos=(r, c),
+                )
+            )
     return cells
 
 
 def find_cell_passable_point(grid: Grid, cell: Cell) -> Optional[Coord]:
     start_r, start_c = cell.r_idx * CELL_SIZE, cell.c_idx * CELL_SIZE
-    center_r, center_c = start_r + CELL_SIZE // 2, start_c + CELL_SIZE // 2
+    center_r, center_c = start_r + cell.height // 2, start_c + cell.width // 2
 
     best_point: Optional[Coord] = None
     min_dist = float("inf")
 
-    for r_offset in range(CELL_SIZE):
-        for c_offset in range(CELL_SIZE):
+    for r_offset in range(cell.height):
+        for c_offset in range(cell.width):
             r, c = start_r + r_offset, start_c + c_offset
             if 0 <= r < grid.shape[0] and 0 <= c < grid.shape[1] and grid[r, c]:
                 dist = abs(r - center_r) + abs(c - center_c)
@@ -144,6 +154,7 @@ def create_road(
 def create_road_system(grid: Grid) -> RoadSystem:
     road_system = RoadSystem()
     cells = get_cells(grid)
+    road_system.cells = cells
     cell_points = {cell: find_cell_passable_point(grid, cell) for cell in cells}
 
     valid_cells = [cell for cell in cells if cell_points[cell] is not None]
@@ -215,8 +226,8 @@ def print_road_system(grid: Grid, road_system: RoadSystem):
 
         def is_in_cell(r, c, cell_obj):
             if not cell_obj: return False
-            return cell_obj.r_idx * CELL_SIZE <= r < (cell_obj.r_idx + 1) * CELL_SIZE and \
-                   cell_obj.c_idx * CELL_SIZE <= c < (cell_obj.c_idx + 1) * CELL_SIZE
+            return cell_obj.pos[0] <= r < cell_obj.pos[0] + cell_obj.height and \
+                   cell_obj.pos[1] <= c < cell_obj.pos[1] + cell_obj.width
 
         for r in range(rows):
             for c in range(cols):
@@ -249,7 +260,12 @@ def print_road_system(grid: Grid, road_system: RoadSystem):
         elif key == '\x1b[C' and curr_c < cols - 1: curr_c += 1 # Right
         elif key == '\x1b[D' and curr_c > 0: curr_c -= 1 # Left
         elif key in [' ', '\r', '\n']: # Select
-            cell = Cell(r_idx=curr_r // CELL_SIZE, c_idx=curr_c // CELL_SIZE)
+            r_idx = curr_r // CELL_SIZE
+            c_idx = curr_c // CELL_SIZE
+            pos = (r_idx * CELL_SIZE, c_idx * CELL_SIZE)
+            height = min(CELL_SIZE, rows - pos[0])
+            width = min(CELL_SIZE, cols - pos[1])
+            cell = Cell(r_idx=r_idx, c_idx=c_idx, width=width, height=height, pos=pos)
             if start_cell is None:
                 start_cell = cell
             elif goal_cell is None:

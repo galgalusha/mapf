@@ -6,7 +6,7 @@ from dist_table import compute_dist_table, is_valid, neighbors
 from print import print_plan
 from mapf_types import Action, Agent, Coord, Grid, Plan
 
-SWAP_ENABLED = False
+SWAP_ENABLED = True
 
 def d_get(dist_tables: list[dict[Coord, int]], agent_idx: int, v: Coord) -> int:
     return dist_tables[agent_idx].get(v, 10**9)
