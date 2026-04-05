@@ -28,13 +28,24 @@ MAX_TIME = 80000
 class Cell(NamedTuple):
     r_idx: int
     c_idx: int
-    width: int
-    height: int
-    pos: Coord
+
+    @property
+    def width(self) -> int:
+        return CELL_SIZE
+
+    @property
+    def height(self) -> int:
+        return CELL_SIZE
+
+    @property
+    def pos(self) -> Coord:
+        return (self.r_idx * CELL_SIZE, self.c_idx * CELL_SIZE)
+
 
 class Segment(NamedTuple):
     coords: list[Coord]
     direction: tuple[int, int]
+
 
 class Road(NamedTuple):
     start_cell: Cell

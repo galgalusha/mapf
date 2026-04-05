@@ -18,15 +18,10 @@ def get_cells(grid: Grid) -> list[Cell]:
     cells = []
     for r in range(0, rows, CELL_SIZE):
         for c in range(0, cols, CELL_SIZE):
-            height = min(CELL_SIZE, rows - r)
-            width = min(CELL_SIZE, cols - c)
             cells.append(
                 Cell(
                     r_idx=r // CELL_SIZE,
                     c_idx=c // CELL_SIZE,
-                    width=width,
-                    height=height,
-                    pos=(r, c),
                 )
             )
     return cells
@@ -262,10 +257,7 @@ def print_road_system(grid: Grid, road_system: RoadSystem):
         elif key in [' ', '\r', '\n']: # Select
             r_idx = curr_r // CELL_SIZE
             c_idx = curr_c // CELL_SIZE
-            pos = (r_idx * CELL_SIZE, c_idx * CELL_SIZE)
-            height = min(CELL_SIZE, rows - pos[0])
-            width = min(CELL_SIZE, cols - pos[1])
-            cell = Cell(r_idx=r_idx, c_idx=c_idx, width=width, height=height, pos=pos)
+            cell = Cell(r_idx=r_idx, c_idx=c_idx)
             if start_cell is None:
                 start_cell = cell
             elif goal_cell is None:

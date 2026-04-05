@@ -233,6 +233,15 @@ def initialize_agents_data(
 def d_get(dist_tables: list[dict[Coord, int]], agent_idx: int, v: Coord) -> int:
     return dist_tables[agent_idx].get(v, 10**9)
 
+def crop_grid_to_cells(grid, road_system) -> dict[Cell, Grid]:
+    return ({
+        cell: grid[
+            cell.pos[0] : cell.pos[0] + cell.height,
+            cell.pos[1] : cell.pos[1] + cell.width,
+        ]
+        for cell in road_system.cells
+    })
+
 
 def solve(grid: Grid, agents: list[Agent]) -> Optional[Plan]:
     print("Creating road system...")
@@ -240,13 +249,7 @@ def solve(grid: Grid, agents: list[Agent]) -> Optional[Plan]:
     print("Road system created.")
     # print_road_system(grid, road_system)
 
-    cropped_grids = {
-        cell: grid[
-            cell.pos[0] : cell.pos[0] + cell.height,
-            cell.pos[1] : cell.pos[1] + cell.width,
-        ]
-        for cell in road_system.cells
-    }
+    cropped_grids = crop_grid_to_cells(grid, road_system)
 
     print("Initializing agents data...")
     initialize_agents_data(grid, agents, road_system, cropped_grids)
@@ -259,6 +262,10 @@ if __name__ == "__main__":
     grid: Grid = get_grid("./assets/random-32-32-20.map")
     scene = get_scenario("./assets/random-32-32-20.scen", 20)
     agents = to_agents(scene)
+
+    # road_system = create_road_system(grid)
+    # print_road_system(grid, road_system)
+
 
     result = solve(grid, agents)
     if not result:

@@ -8,6 +8,7 @@ from wad_road import find_cell_passable_point, get_cells
 
 class WadRoadTest(unittest.TestCase):
     @patch('wad_road.CELL_SIZE', 3)
+    @patch('wad_model.CELL_SIZE', 3)
     def test_get_cells(self):
         """Tests the cell creation logic."""
         grid = np.ones((9, 9), dtype=bool)
@@ -21,6 +22,7 @@ class WadRoadTest(unittest.TestCase):
         self.assertNotIn(Cell(r_idx=3, c_idx=0), cells)
 
     @patch('wad_road.CELL_SIZE', 3)
+    @patch('wad_model.CELL_SIZE', 3)
     def test_find_cell_passable_point_clear(self):
         """Tests finding the center in a fully passable cell."""
         grid = np.ones((9, 9), dtype=bool)
@@ -36,6 +38,7 @@ class WadRoadTest(unittest.TestCase):
         self.assertEqual(center_1_2, (4, 7))
 
     @patch('wad_road.CELL_SIZE', 3)
+    @patch('wad_model.CELL_SIZE', 3)
     def test_find_cell_passable_point_with_obstacle(self):
         """Tests finding the center when the geometric center is blocked."""
         grid = np.ones((9, 9), dtype=bool)
